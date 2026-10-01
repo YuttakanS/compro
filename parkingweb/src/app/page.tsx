@@ -12,24 +12,26 @@ export default async function Home() {
   });
 
   // Server Action สำหรับบันทึกข้อมูล
-  async function registerPlate(formData: FormData) {
+  async function registerPlateAction(formData: FormData) {
     'use server';
-    const plateNumber = formData.get('plateNumber') as string;
-    const ownerName = formData.get('ownerName') as string;
-    if (!plateNumber || !ownerName) return;
+    const plateNumber = String(formData.get('plateNumber') ?? '').replace(/\s+/g, '').toLocaleUpperCase();
+    const ownerName = String(formData.get('ownerName') ?? '').trim();
+    if (!plateNumber || !ownerName) {
+      return { ok: false, message: 'กรุณากรอกเลขทะเบียนและชื่อผู้จองให้ครบ' };
+    }
 
     try {
-      const cleanPlate = plateNumber.replace(/\s+/g, '');
       await prisma.authorizedPlate.create({
-        data: { plateNumber: cleanPlate, ownerName: ownerName },
+        data: { plateNumber, ownerName },
       });
-      // รีเฟรชข้อมูลให้ตารางด้านล่างอัปเดตทันที
-      revalidatePath('/'); 
+      revalidatePath('/');
+      return { ok: true, message: 'บันทึกการจองและทะเบียนรถเรียบร้อยแล้ว' };
     } catch (error) {
       console.error("Database Error:", error);
+      return { ok: false, message: 'บันทึกไม่สำเร็จ อาจมีทะเบียนนี้ในระบบแล้ว กรุณาตรวจสอบและลองอีกครั้ง' };
     }
   }
 
   // เรียกใช้หน้าตา UI ที่เราแยกไฟล์ไว้
-  return <PaymentUI plates={plates} registerPlateAction={registerPlate} />;
+  return <PaymentUI plates={plates} registerPlateAction={registerPlateAction} />;
 }

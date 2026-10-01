@@ -1,175 +1,320 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useState, type FormEvent } from 'react';
 
-const METHODS = [
-  { label: 'พร้อมเพย์', alt: 'PromptPay', src: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS3EuTsVPog_0wMsqMXwb7NzCeFzkq0Syu2YvVEMHH0yK2_FzN-1Tx9iGo&s=10', checked: true},
-  { label: 'กสิกรไทย', alt: 'KBank', src: 'https://www.prachachat.net/wp-content/uploads/2020/02/kasikorn-bank.jpg' },
-  { label: 'ไทยพาณิชย์', alt: 'SCB', src: 'https://contents.bu.ac.th/contents/images/mous/329753f9-5166-4d9b-911d-d78859cbb023.jpg' },
-  { label: 'กรุงไทย', alt: 'Krungthai', src: 'https://thethaiger.com/th/wp-content/uploads/2020/11/HCtHFA7ele6Q2dUK3zFOTjoPDX29CBVDMs0YEZd0e6L7sICJ2fm3O2NBkweRpo6F9J.jpg' },
+type Plate = {
+  id: number;
+  plateNumber: string;
+  ownerName: string;
+};
+
+type RegistrationResult = {
+  ok: boolean;
+  message: string;
+};
+
+type PaymentUIProps = {
+  plates: Plate[];
+  registerPlateAction: (formData: FormData) => Promise<RegistrationResult>;
+};
+
+const PAYMENT_METHODS = [
+  { id: 'promptpay', name: 'พร้อมเพย์', detail: 'สแกน QR Code', mark: 'PP', tone: 'bg-sky-300/15 text-sky-100' },
+  { id: 'kbank', name: 'กสิกรไทย', detail: 'Mobile Banking', mark: 'KB', tone: 'bg-emerald-300/15 text-emerald-100' },
+  { id: 'scb', name: 'ไทยพาณิชย์', detail: 'Mobile Banking', mark: 'SCB', tone: 'bg-violet-300/15 text-violet-100' },
+  { id: 'krungthai', name: 'กรุงไทย', detail: 'Mobile Banking', mark: 'KT', tone: 'bg-cyan-300/15 text-cyan-100' },
 ];
 
-// Glass primitives
-const glass = 'bg-white/[0.07] backdrop-blur-2xl border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.18)]';
-const inputCls =
-  'w-full rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3.5 text-base text-white placeholder-white/35 outline-none backdrop-blur-md transition focus:border-cyan-300/60 focus:bg-white/10 focus:ring-4 focus:ring-cyan-300/15 disabled:cursor-not-allowed disabled:opacity-40';
+const glassPanel =
+  'border border-white/[0.13] bg-white/[0.075] shadow-[0_20px_60px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl';
 
-export default function PaymentUI({ plates, registerPlateAction }: any) {
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success'>('idle');
+const inputClass =
+  'w-full rounded-2xl border border-white/15 bg-[#111713]/65 px-4 py-3.5 text-base text-white outline-none transition placeholder:text-white/30 hover:border-white/25 focus:border-amber-200/70 focus:bg-[#111713]/85 focus:ring-4 focus:ring-amber-200/10 disabled:cursor-wait disabled:opacity-60';
 
-  async function handlePayment(e: any) {
-    e.preventDefault();
+export default function PaymentUI({ plates, registerPlateAction }: PaymentUIProps) {
+  const [plateNumber, setPlateNumber] = useState('');
+  const [ownerName, setOwnerName] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('promptpay');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [feedback, setFeedback] = useState('');
 
-    // 🌟 ดึงข้อมูลเก็บไว้ในตัวแปรก่อนที่ช่องจะถูก Disabled
-    const formData = new FormData(e.currentTarget);
+  const isSaving = status === 'saving';
 
-    setStatus('processing');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    setStatus('saving');
+    setFeedback('กำลังบันทึกข้อมูลการจอง…');
 
-    setStatus('success');
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    try {
+      const result = await registerPlateAction(new FormData(form));
+      setStatus(result.ok ? 'success' : 'error');
+      setFeedback(result.message);
 
-    // 🌟 ส่งข้อมูลที่ดึงเก็บไว้ไปบันทึก
-    await registerPlateAction(formData);
-
-    setStatus('idle');
-    e.target.reset();
+      if (result.ok) {
+        setPlateNumber('');
+        setOwnerName('');
+        form.reset();
+      }
+    } catch {
+      setStatus('error');
+      setFeedback('บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง');
+    }
   }
 
-  const busy = status !== 'idle';
+  function updatePlateNumber(value: string) {
+    setPlateNumber(value.replace(/\s+/g, '').toLocaleUpperCase());
+    setStatus('idle');
+    setFeedback('');
+  }
+
+  function updateOwnerName(value: string) {
+    setOwnerName(value);
+    setStatus('idle');
+    setFeedback('');
+  }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0a0f24] px-4 py-8 font-sans text-white sm:px-6 lg:px-8">
-      {/* Background blobs (glass needs something to blur) */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-indigo-600/50 blur-[110px]" />
-        <div className="absolute -right-24 top-1/4 h-[26rem] w-[26rem] rounded-full bg-cyan-400/35 blur-[110px]" />
-        <div className="absolute -bottom-32 left-1/3 h-[24rem] w-[24rem] rounded-full bg-fuchsia-500/35 blur-[110px]" />
+    <div className="relative min-h-screen overflow-hidden bg-[#171d18] px-4 py-7 font-sans text-[#f8f5ec] sm:px-6 sm:py-10 lg:px-8">
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -left-40 -top-36 h-[34rem] w-[34rem] rounded-full bg-amber-700/20 blur-[130px]" />
+        <div className="absolute -right-36 top-[18%] h-[32rem] w-[32rem] rounded-full bg-emerald-500/15 blur-[140px]" />
+        <div className="absolute -bottom-48 left-[35%] h-[30rem] w-[30rem] rounded-full bg-rose-400/10 blur-[130px]" />
       </div>
 
-      <main className="relative mx-auto max-w-6xl space-y-8">
-        {/* Header */}
-        <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-4xl">My Project</h1>
-            <p className="mt-1 text-sm text-white/60 sm:text-lg">ระบบลงทะเบียนและชำระค่าบริการลานจอดรถ</p>
-          </div>
+      <main className="relative mx-auto max-w-6xl">
+        <header className="mb-9 flex items-center justify-between gap-4 sm:mb-12">
+          <Link href="/" aria-label="หน้าหลัก" className="group inline-flex items-center gap-3 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-200">
+            <span className="grid size-11 place-items-center rounded-2xl border border-amber-100/20 bg-amber-100/10 text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)] transition group-hover:bg-amber-100/15">
+              <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" fill="none">
+                <path d="M4 17.5V8.8c0-.9.6-1.7 1.5-1.9l1.2-.3.8-2.1c.2-.6.8-1 1.5-1h6c.7 0 1.3.4 1.5 1l.8 2.1 1.2.3c.9.2 1.5 1 1.5 1.9v8.7M4 13h16M7 17.5h.01M17 17.5h.01M6 7l1 6m11-6-1 6M7 17.5h10M4 17.5h-1m18 0h-1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span>
+              <span className="block text-sm font-semibold tracking-wide text-white">Parkside</span>
+              <span className="mt-0.5 block text-xs text-white/45">ที่จอดรถรายเดือน</span>
+            </span>
+          </Link>
+
           <Link
             href="/admin"
-            className={`${glass} inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-300`}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 text-sm font-medium text-white/75 backdrop-blur-xl transition hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-            Admin Login
+            <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span className="hidden sm:inline">สำหรับผู้ดูแล</span>
+            <span className="sm:hidden">Admin</span>
           </Link>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          {/* --- ฝั่งซ้าย --- */}
-          <div className="space-y-6 lg:col-span-2">
-            <section className={`${glass} rounded-3xl p-6 sm:p-8`}>
-              <h2 className="mb-6 text-lg font-semibold text-cyan-200">ข้อมูลผู้เช่าและยานพาหนะ</h2>
-              <form id="payment-form" onSubmit={handlePayment} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <section className="mb-8 max-w-3xl sm:mb-10">
+          <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-amber-100/70">
+            <span className="h-px w-7 bg-amber-100/50" /> Monthly parking pass
+          </p>
+          <h1 className="max-w-2xl text-3xl font-semibold leading-tight tracking-tight text-[#fbf8ef] sm:text-5xl sm:leading-[1.12]">
+            กลับมาเมื่อไหร่<br className="hidden sm:block" /> ก็มีที่จอดรออยู่
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-white/55 sm:text-base sm:leading-7">
+            ลงทะเบียนรถของคุณ แล้วจองสิทธิ์จอดรถรายเดือนในไม่กี่ขั้นตอน
+          </p>
+        </section>
+
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)] lg:gap-7">
+          <div className="space-y-5">
+            <section aria-labelledby="vehicle-heading" className={`${glassPanel} rounded-[1.75rem] p-5 sm:rounded-[2rem] sm:p-8`}>
+              <div className="mb-7 flex items-start gap-4">
+                <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-amber-100/15 bg-amber-100/[0.08] text-sm font-semibold text-amber-100">01</span>
                 <div>
-                  <label htmlFor="plateNumber" className="mb-2 block text-sm font-medium text-white/70">เลขทะเบียนรถ (Plate Number)</label>
-                  <input id="plateNumber" type="text" name="plateNumber" placeholder="เช่น 1กข1234" disabled={busy} className={inputCls} required />
+                  <h2 id="vehicle-heading" className="text-lg font-semibold text-white sm:text-xl">เริ่มจากข้อมูลของคุณ</h2>
+                  <p className="mt-1 text-sm leading-6 text-white/50">ใช้ข้อมูลนี้เพื่อบันทึกสิทธิ์รถของคุณในระบบ</p>
                 </div>
+              </div>
+
+              <form id="reservation-form" onSubmit={handleSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="ownerName" className="mb-2 block text-sm font-medium text-white/70">ชื่อ-นามสกุล (Owner Name)</label>
-                  <input id="ownerName" type="text" name="ownerName" placeholder="ระบุชื่อเจ้าของรถ" disabled={busy} className={inputCls} required />
+                  <label htmlFor="plateNumber" className="mb-2 block text-sm font-medium text-white/80">เลขทะเบียนรถ</label>
+                  <div className="relative">
+                    <input
+                      id="plateNumber"
+                      name="plateNumber"
+                      type="text"
+                      value={plateNumber}
+                      onChange={(event) => updatePlateNumber(event.target.value)}
+                      placeholder="เช่น 1กข 1234"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      maxLength={16}
+                      disabled={isSaving}
+                      required
+                      aria-describedby="plate-hint"
+                      className={`${inputClass} pr-12 font-mono tracking-wide`}
+                    />
+                    <svg aria-hidden="true" className="pointer-events-none absolute right-4 top-1/2 size-5 -translate-y-1/2 text-white/35" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.6" d="M4 17.5V8.8c0-.9.6-1.7 1.5-1.9l1.2-.3.8-2.1c.2-.6.8-1 1.5-1h6c.7 0 1.3.4 1.5 1l.8 2.1 1.2.3c.9.2 1.5 1 1.5 1.9v8.7M4 13h16M7 17.5h.01M17 17.5h.01" />
+                    </svg>
+                  </div>
+                  <p id="plate-hint" className="mt-2 text-xs leading-5 text-white/40">ไม่ต้องเว้นวรรค ระบบจัดรูปแบบทะเบียนให้อัตโนมัติ</p>
                 </div>
+
+                <div>
+                  <label htmlFor="ownerName" className="mb-2 block text-sm font-medium text-white/80">ชื่อผู้จอง</label>
+                  <input
+                    id="ownerName"
+                    name="ownerName"
+                    type="text"
+                    value={ownerName}
+                    onChange={(event) => updateOwnerName(event.target.value)}
+                    placeholder="ชื่อและนามสกุล"
+                    autoComplete="name"
+                    maxLength={100}
+                    disabled={isSaving}
+                    required
+                    className={inputClass}
+                  />
+                </div>
+
+                {feedback && (
+                  <p
+                    role={status === 'error' ? 'alert' : 'status'}
+                    aria-live="polite"
+                    className={`rounded-2xl border px-4 py-3 text-sm leading-5 ${
+                      status === 'success'
+                        ? 'border-emerald-200/20 bg-emerald-200/[0.08] text-emerald-100'
+                        : status === 'error'
+                          ? 'border-rose-200/20 bg-rose-200/[0.08] text-rose-100'
+                          : 'border-white/10 bg-white/[0.04] text-white/70'
+                    }`}
+                  >
+                    {feedback}
+                  </p>
+                )}
               </form>
             </section>
 
-            <section className={`${glass} rounded-3xl p-6 sm:p-8`}>
-              <h2 className="mb-5 text-lg font-semibold text-white/90">ยานพาหนะของคุณ (My Vehicles)</h2>
-              <div className="space-y-3">
-                {plates.map((plate: any) => (
-                  <div key={plate.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-md">
-                    <div className="flex min-w-0 items-center gap-4">
-                      <div className="min-w-[96px] rounded-lg border border-white/30 bg-white/10 px-3 py-1.5 text-center">
-                        <span className="text-sm font-bold tracking-wider">{plate.plateNumber}</span>
-                      </div>
-                      <span className="truncate text-sm font-medium text-white/85">{plate.ownerName}</span>
-                    </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-400/15 px-3 py-1 text-xs font-medium text-emerald-200">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px_#6ee7b7]" />
-                      Active
-                    </span>
-                  </div>
-                ))}
-                {plates.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-white/20 py-8 text-center text-sm text-white/45">
-                    ยังไม่มียานพาหนะที่ลงทะเบียน
-                  </div>
-                )}
+            <section aria-labelledby="vehicles-heading" className={`${glassPanel} rounded-[1.75rem] p-5 sm:rounded-[2rem] sm:p-7`}>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div>
+                  <h2 id="vehicles-heading" className="font-semibold text-white">รถที่ลงทะเบียนแล้ว</h2>
+                  <p className="mt-1 text-xs text-white/45">รายการล่าสุดในระบบ</p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-xs tabular-nums text-white/55">{plates.length} คัน</span>
               </div>
+
+              {plates.length > 0 ? (
+                <ul className="space-y-2.5">
+                  {plates.map((plate) => (
+                    <li key={plate.id} className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-[#111713]/40 p-3.5 sm:px-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.07] text-white/65">
+                          <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 17.5V8.8c0-.9.6-1.7 1.5-1.9l1.2-.3.8-2.1c.2-.6.8-1 1.5-1h6c.7 0 1.3.4 1.5 1l.8 2.1 1.2.3c.9.2 1.5 1 1.5 1.9v8.7M4 13h16M7 17.5h.01M17 17.5h.01" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-mono text-sm font-semibold tracking-wide text-white">{plate.plateNumber}</span>
+                          <span className="mt-0.5 block truncate text-xs text-white/45">{plate.ownerName}</span>
+                        </span>
+                      </div>
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200/15 bg-emerald-200/[0.07] px-2.5 py-1 text-[11px] text-emerald-100/80">
+                        <span className="size-1.5 rounded-full bg-emerald-200/80" /> พร้อมใช้งาน
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/15 px-4 py-7 text-center">
+                  <p className="text-sm text-white/65">ยังไม่มีรถในรายการ</p>
+                  <p className="mt-1 text-xs text-white/40">เพิ่มทะเบียนด้านบนเพื่อเริ่มจองที่จอด</p>
+                </div>
+              )}
             </section>
           </div>
 
-          {/* --- ฝั่งขวา: Payment --- */}
-          <aside className={`${glass} relative h-fit overflow-hidden rounded-3xl lg:sticky lg:top-8`}>
-            {status === 'processing' && (
-              <div role="status" className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a0f24]/50 backdrop-blur-md">
-                <svg className="mb-4 h-10 w-10 animate-spin text-cyan-300" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
-                <p className="font-medium text-cyan-100">กำลังติดต่อธนาคาร...</p>
+          <aside aria-labelledby="payment-heading" className={`${glassPanel} overflow-hidden rounded-[1.75rem] sm:rounded-[2rem] lg:sticky lg:top-8`}>
+            <div className="border-b border-white/10 bg-gradient-to-br from-amber-100/[0.10] via-white/[0.035] to-transparent px-5 py-6 sm:px-7 sm:py-7">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-amber-100/65">02 · Your reservation</p>
+              <h2 id="payment-heading" className="mt-2 text-xl font-semibold text-white">สรุปค่าบริการ</h2>
+              <div className="mt-6 flex items-end gap-2">
+                <span className="text-5xl font-semibold tracking-tight text-[#fbf8ef]">฿300</span>
+                <span className="pb-1 text-sm text-white/50">/ เดือน</span>
               </div>
-            )}
-
-            <div className="border-b border-white/10 bg-white/[0.04] px-6 py-8 text-center sm:px-8">
-              <h3 className="mb-2 text-sm font-medium text-white/60">ค่าบริการสมาชิก (รายเดือน)</h3>
-              <div className="flex items-baseline justify-center gap-1 text-5xl font-extrabold tracking-tight">
-                ฿300<span className="text-xl font-medium text-white/45">.00</span>
-              </div>
+              <p className="mt-2 text-sm text-white/55">สิทธิ์จอดรถสำหรับสมาชิก 1 เดือน</p>
             </div>
 
-            <div className="space-y-6 p-6 sm:p-8">
+            <div className="space-y-6 p-5 sm:p-7">
               <fieldset>
-                <legend className="mb-3 text-sm font-semibold text-white/80">เลือกช่องทางชำระเงิน</legend>
-                <div className="grid grid-cols-2 gap-3">
-                  {METHODS.map(m => (
-                    <label key={m.alt} className="relative cursor-pointer">
-                      <input type="radio" name="payment_method" className="peer sr-only" defaultChecked={m.checked} disabled={busy} />
-                      <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] p-3 backdrop-blur-md transition hover:bg-white/10 peer-checked:border-cyan-300/70 peer-checked:bg-cyan-300/15 peer-checked:shadow-[0_0_20px_rgba(103,232,249,0.25)] peer-focus-visible:ring-2 peer-focus-visible:ring-cyan-300 peer-disabled:cursor-not-allowed peer-disabled:opacity-40">
-                        {/* 🌟 ลิงก์รูปของคุณ */}
-                        <span className="grid h-9 w-full place-items-center rounded-lg bg-white/90 px-2">
-                          <img src={m.src} alt={m.alt} className="h-6 object-contain" />
+                <legend className="mb-3 text-sm font-medium text-white/80">ช่องทางชำระเงิน</legend>
+                <div className="space-y-2">
+                  {PAYMENT_METHODS.map((method) => {
+                    const selected = paymentMethod === method.id;
+                    return (
+                      <label key={method.id} className="block cursor-pointer">
+                        <input
+                          type="radio"
+                          name="payment_method"
+                          value={method.id}
+                          form="reservation-form"
+                          checked={selected}
+                          onChange={() => setPaymentMethod(method.id)}
+                          disabled={isSaving}
+                          className="peer sr-only"
+                        />
+                        <span className={`flex min-h-[60px] items-center gap-3 rounded-2xl border px-3.5 py-2.5 transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-amber-200 ${selected ? 'border-amber-100/35 bg-amber-100/[0.09] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]' : 'border-white/10 bg-white/[0.025] hover:border-white/20 hover:bg-white/[0.05]'} ${isSaving ? 'cursor-wait opacity-50' : ''}`}>
+                          <span className={`grid size-10 shrink-0 place-items-center rounded-xl text-[11px] font-bold tracking-tight ${method.tone}`}>{method.mark}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-medium text-white/90">{method.name}</span>
+                            <span className="mt-0.5 block text-xs text-white/45">{method.detail}</span>
+                          </span>
+                          <span className={`grid size-5 shrink-0 place-items-center rounded-full border ${selected ? 'border-amber-100 bg-amber-100 text-[#20251f]' : 'border-white/25 text-transparent'}`}>
+                            <svg aria-hidden="true" className="size-3" viewBox="0 0 16 16" fill="none"><path d="m3.5 8 3 3 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          </span>
                         </span>
-                        <span className="text-xs font-medium text-white/80">{m.label}</span>
-                      </div>
-                    </label>
-                  ))}
+                      </label>
+                    );
+                  })}
                 </div>
               </fieldset>
+
+              <div className="space-y-3 border-t border-white/10 pt-5 text-sm">
+                <div className="flex justify-between text-white/55"><span>ค่าบริการรายเดือน</span><span>฿300.00</span></div>
+                <div className="flex justify-between font-semibold text-white"><span>ยอดรวม</span><span>฿300.00</span></div>
+              </div>
 
               <div>
                 <button
                   type="submit"
-                  form="payment-form"
-                  disabled={busy}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl border px-4 py-4 text-base font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300
-                    ${status === 'idle' ? 'border-white/30 bg-gradient-to-r from-indigo-500/80 to-cyan-400/80 text-white shadow-[0_8px_30px_rgba(99,102,241,0.45),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-md hover:brightness-110 active:scale-[0.98]' : ''}
-                    ${status === 'processing' ? 'cursor-not-allowed border-white/10 bg-white/10 text-white/50' : ''}
-                    ${status === 'success' ? 'border-emerald-200/40 bg-emerald-400/80 text-white shadow-[0_8px_30px_rgba(16,185,129,0.5)]' : ''}
-                  `}
+                  form="reservation-form"
+                  disabled={isSaving}
+                  className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#e8c98d] px-5 py-4 text-base font-semibold text-[#26271f] shadow-[0_10px_30px_rgba(191,153,87,0.2),inset_0_1px_0_rgba(255,255,255,0.55)] transition hover:-translate-y-0.5 hover:bg-[#f0d9a8] hover:shadow-[0_14px_35px_rgba(191,153,87,0.28)] active:translate-y-0 active:scale-[0.99] disabled:cursor-wait disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-100"
                 >
-                  {status === 'idle' && (
+                  {isSaving ? (
                     <>
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                      ยืนยันการชำระเงิน
+                      <svg aria-hidden="true" className="size-5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-90" d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>
+                      กำลังบันทึกการจอง…
                     </>
-                  )}
-                  {status === 'processing' && 'กำลังประมวลผล...'}
-                  {status === 'success' && (
+                  ) : status === 'success' ? (
                     <>
-                      <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-                      ชำระเงินสำเร็จ!
+                      <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="m5 12 4 4L19 6" /></svg>
+                      จองสำเร็จ · ลงทะเบียนรถเพิ่ม
+                    </>
+                  ) : (
+                    <>
+                      <svg aria-hidden="true" className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V5a2 2 0 0 1 2-2h7l4 4v12a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-2m7-10v4m0 0-2-2m2 2 2-2M3 12h10" /></svg>
+                      ยืนยันการจอง
                     </>
                   )}
                 </button>
-                <p className="mt-3 text-center text-xs text-white/45">
-                  ระบบจะบันทึกสิทธิ์เข้าลานจอดรถอัตโนมัติเมื่อทำรายการสำเร็จ
+                <p className="mt-3 text-center text-xs leading-5 text-white/45">
+                  หน้าชำระเงินนี้เป็นตัวอย่าง ยังไม่มีการตัดเงินจริง
                 </p>
+              </div>
+
+              <div className="flex items-start gap-2.5 rounded-2xl border border-white/[0.08] bg-white/[0.035] px-3.5 py-3 text-xs leading-5 text-white/45">
+                <svg aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-emerald-200/75" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d="m9 12 2 2 4-4" /></svg>
+                <p>ข้อมูลทะเบียนรถจะถูกใช้สำหรับตรวจสิทธิ์เข้าใช้งานลานจอดรถ</p>
               </div>
             </div>
           </aside>
