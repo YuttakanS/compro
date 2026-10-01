@@ -1,0 +1,32 @@
+# Python environment and generated files
+parking_env/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Runtime database and captured vehicle images
+parkingweb/prisma/dev.db
+parkingweb/prisma/dev.db-journal
+parkingweb/public/captures/*.jpg
+
+# Next.js dependencies and build output
+parkingweb/node_modules/
+parkingweb/.next/
+parkingweb/out/
+parkingweb/coverage/
+parkingweb/next-env.d.ts
+parkingweb/*.tsbuildinfo
+
+# Generated assistant/editor skill bundles
+parkingweb/.agents/
+parkingweb/.claude/
+parkingweb/.cursor/
+parkingweb/.devin/
+
+# Local configuration and logs
+.env
+.env.*
+*.log
+Thumbs.db
+.DS_Store

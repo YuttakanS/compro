@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model AuthorizedPlate {
+  id          Int      @id @default(autoincrement())
+  plateNumber String   @unique
+  ownerName   String
+  createdAt   DateTime @default(now())
+}
+
+// ตารางใหม่สำหรับเก็บประวัติการเข้า-ออก พร้อมรูปภาพ
+model AccessLog {
+  id          Int      @id @default(autoincrement())
+  plateNumber String
+  ownerName   String?
+  status      String   // "AUTHORIZED" หรือ "DENIED"
+  imagePath   String   // URL path ไปยังรูป เช่น "/captures/xxx.jpg"
+  createdAt   DateTime @default(now())
+}

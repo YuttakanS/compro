@@ -1,0 +1,5 @@
+easyocr
+gTTS
+opencv-python
+pygame
+pyserial
