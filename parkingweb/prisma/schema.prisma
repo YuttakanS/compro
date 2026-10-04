@@ -23,3 +23,17 @@ model AccessLog {
   imagePath   String   // URL path ไปยังรูป เช่น "/captures/xxx.jpg"
   createdAt   DateTime @default(now())
 }
+
+model PaymentReservation {
+  id             String   @id @default(cuid())
+  plateNumber    String
+  ownerName      String
+  amount         Int
+  status         String   @default("pending")
+  omiseChargeId  String?  @unique
+  qrImageUrl     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
