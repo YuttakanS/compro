@@ -5,13 +5,10 @@ import easyocr
 import sqlite3
 import os
 from datetime import datetime
-
-# --- 🌟 โหลด Library สำหรับระบบเสียงพูด 🌟 ---
 from gtts import gTTS
 import pygame
 import io
 
-# ตั้งค่าระบบเสียงให้พร้อมทำงาน
 pygame.mixer.init()
 
 def speak_thai(text):
@@ -22,7 +19,7 @@ def speak_thai(text):
         tts.write_to_fp(fp)
         fp.seek(0)
         pygame.mixer.music.load(fp)
-        pygame.mixer.music.play() # สั่งเล่นเสียงแบบ Non-blocking
+        pygame.mixer.music.play()
     except Exception as e:
         print(f"[AUDIO ERROR] {e}")
 
@@ -42,7 +39,7 @@ except Exception as e:
     print(f"[ERROR] Database connection failed: {e}")
     exit()
 
-COM_PORT = 'COM3' 
+COM_PORT = 'COM4' 
 BAUD_RATE = 115200
 
 try:
@@ -132,15 +129,13 @@ while True:
                 process_time = time.time() - start_time
                 print(f"-> Detected Texts: {detected_text} (Took {process_time:.2f}s)")
                 
-                # --- 🌟 ระบบประมวลผลคำสั่งเปิดประตู + เสียงพูด 🌟 ---
+               
                 if is_authorized:
-                    print(f"[AUTH] Access Granted! Owner: {owner_name}. Sending OPEN.")
-                    # ทักทายด้วยชื่อเจ้าของรถ
+                    print(f"[AUTH] Access Granted! Owner: {owner_name}. Sending OPEN.")                    
                     speak_thai(f"สวัสดีค่ะคุณ {owner_name} อนุญาตให้ผ่านได้ค่ะ")
                     arduino.write(b'1')
                 else:
                     print(f"[AUTH] Access Denied! Logged as {status_str}.")
-                    # แจ้งเตือนเมื่อไม่พบข้อมูล
                     speak_thai("ไม่อนุญาตให้เข้าค่ะ ทะเบียนรถไม่ถูกต้อง")
                     
             elif msg != "":
